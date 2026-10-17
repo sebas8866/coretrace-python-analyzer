@@ -8,17 +8,31 @@ from pathlib import Path
 from coretrace_python.source.model import SourceFile, SourceId
 
 
+def package_root_for(path: Path) -> Path | None:
+    """Parent of the outermost regular package containing a file.
+
+    Implicit namespace directories (PEP 420) may sit between regular package
+    directories and the file; they still belong to that outer package.
+    """
+    root = None
+    for directory in path.parents:
+        if (directory / "__init__.py").is_file():
+            root = directory.parent
+    return root
+
+
 def module_name_for(path: Path) -> str:
-    """Dotted module name of ``path``, walking up through ``__init__.py`` packages.
+    """Dotted import name, including namespace portions below a regular package.
 
-    A package's ``__init__.py`` is named after the package itself."""
-
-    parts = [] if path.name == "__init__.py" else [path.stem]
-    directory = path.parent
-    while (directory / "__init__.py").is_file():
-        parts.append(directory.name)
-        directory = directory.parent
-    return ".".join(reversed(parts)) or path.stem
+    Standalone scripts outside a regular package keep their file-stem name.
+    """
+    root = package_root_for(path)
+    if root is None:
+        return path.stem
+    parts = list(path.relative_to(root).with_suffix("").parts)
+    if parts[-1] == "__init__":
+        parts.pop()
+    return ".".join(parts) or path.stem
 
 
 def decode_text(data: bytes) -> str:

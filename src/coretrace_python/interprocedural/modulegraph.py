@@ -26,6 +26,7 @@ from coretrace_python.interprocedural.summaries import ProjectSummaries, Summary
 from coretrace_python.semantic.imports import ImportTable
 from coretrace_python.semantic.symbols import SymbolId
 from coretrace_python.source import SourceFile, SourceManager
+from coretrace_python.source.manager import package_root_for
 
 IGNORED_DIRECTORIES = frozenset({"__pycache__", "node_modules", "venv", "build", "dist", "site-packages"})
 
@@ -122,15 +123,12 @@ def _dotted(path: Path) -> str:
 
 def _import_root(source: SourceFile) -> Path | None:
     """The directory an import of ``source`` by its module name starts from: the parent
-    of its top-level package, or its own directory for a module outside any package,
-    where ``module_name_for`` stopped. ``None`` for a source not on disk."""
+    of its top-level regular package (including any nested namespace portions), or its
+    own directory for a module outside a package. ``None`` for a source not on disk."""
 
     if source.path is None:
         return None
-    directory = source.path.parent
-    while (directory / "__init__.py").is_file():
-        directory = directory.parent
-    return directory
+    return package_root_for(source.path) or source.path.parent
 
 
 def project_symbol(module_name: str, qualified_name: str) -> SymbolId:
